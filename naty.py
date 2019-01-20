@@ -1,59 +1,46 @@
 import pandas as pd
+import math
 
 #CONSTANTS
 
 NCORES = 8
-
-T_ing =22
-l= 6
+T_inf =22
+I= 6
 V=1
-alpha= 0.1
-c_p=0.1
+activity_factor= 0.1
+cp=0.1
 h=50
-a_s = 60 * (10 ** -4)
-m = 50 * (10 ** 3)
-C = 900
-t = 41
+as_motherboard = 60*(10**-4)
+mass= 50*(10**-3)
+C=900
+t=41
+tp_0= 293.15
+e0=0.642
+k=0.000863
+mttftpo= 27800
 
-
-try:
-	'''
-	metric_1 = df['vnf min cpu'] * df['min mem affinity']
-	df = df.assign(metric_1 = metric_1.values)
-	df.to_csv('results_out.csv', sep = ';')
-	'''
-except Exception as e:
-	print('error reading file')
-	print(e)
-
-#this function just load the csv 
 def load_csv():
 	try:
 		df = pd.read_csv('results.csv', delimiter = ',', low_memory = False)
 		return df
-		#metric_1 = df['vnf min cpu'] * df['min mem affinity']
-		#df = df.assign(metric_1 = metric_1.values)
-		#df.to_csv('results_out.csv', sep = ';')
-	except Exception as e:
-		print('error reading file')
-		print(e)
+  	except Exception as e:
+   		print('error reading file')
+    	print(e)
 
-
-def load_csv2():
+def add_metrics_to_new_csv(mtt,mtt_upper,mtt_lower):
 	try:
 		df = pd.read_csv('results.csv', delimiter = ',', low_memory = False)
-		metric_1 = df['vnf min cpu'] * df['min mem affinity']
-		df = df.assign(metric_1 = metric_1.values)
+		df = df.assign(MTT = mtt.values)
+		df = df.assign(MTT_upper = mtt_upper.values)
+		df = df.assign(MTT_lower = mtt_lower.values)
 		df.to_csv('results_out.csv', sep = ';')
 	except Exception as e:
 		print('error reading file')
 		print(e)
 
-df = load_csv()
 
 
-
-	
+# this get the dataframe from the CSV using pandas.
 def getDataframeFromCsv(filePath, delimiter):
 	try:
 		return pd.read_csv(filePath, delimiter)
@@ -61,6 +48,7 @@ def getDataframeFromCsv(filePath, delimiter):
 		print('Error reading CSV')
 		print(e)
 
+#this describeDataFrame.
 def describeDataFrame(df):
 	try:
 		print(df.describe())
@@ -68,6 +56,7 @@ def describeDataFrame(df):
 		print('Error describing dataframe')
 		print(e)
 
+#null features.
 def describeNullFeature(dataframe, feature):
     try:
         records = len(dataframe)
@@ -80,34 +69,40 @@ def describeNullFeature(dataframe, feature):
         print('Error describing csv, dataframe and/or feature invalid')
         print(e)
 
+#function that get the cpu_frecuency from the vnf cpu usage
 #equation 1
 def get_average_cpu_freceuncy(dataframe):
 	ec_1 = dataframe['vnf cpu usage'] * NCORES * 2.3
 	return ec_1
 
-def out_put_frecuency(averga_cpu_frecuency):
-	T_ing =22
-	l= 6
-	V=1
-	activity_factor= 0.1
-	cp=0.1
-	h=50
-	as_motherboard = 60*(10**-4)
-	mass= 50*(10**-3)
-	C=900
-	t=41
-	ec_2= 22 + 0.033*averga_cpu_frecuency
-	print ec_2[1]
-	return ec_2
+#equation 2
+def output_frequency(vectorFrequency):
+  factor_a = ((I * V) + (activity_factor * cp * V**2 ) ) / ( h * as_motherboard )
+  factor_b = (1 - math.e ** (-((h * as_motherboard * 3600) / (mass * 900)  )* 1000))
+  ec_2 = T_inf + factor_a * vectorFrequency * factor_b 
+  return ec_2
+
+#equation 3
+def mttf(temperature):
+	mtt= mttftpo*(math.e**((e0/k)*(1/temperature - 1/tp_0)))
+	return mtt
+
+#upper
+def mtt_upper(mtt):
+	mtt_upper = mtt + mtt*0.5
+	return mtt_upper
+
+#lower
+def mtt_lower(mtt):
+	mtt_lower = mtt - mtt*05 
+	return mtt_lower
 
 def main():
+	df = load_csv()
 	df = getDataframeFromCsv('results.csv',',')
-	#getMTTF(df)
-	out_put_frecuency(get_average_cpu_freceuncy(df))
+	mtt= mttf(output_frequency(get_average_cpu_freceuncy(df)))
+	add_metrics_to_new_csv(mtt,mtt_upper(mtt),mtt_lower(mtt))
 
-	
-
-	
 if __name__ == '__main__':
 	main()
 
